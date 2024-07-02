@@ -4,7 +4,6 @@ const app = express();
 
 const weatherApiKey = '245b388dae7898e94744c82efd06507d'; 
 
-
 async function fetchClientIP() {
     try {
         const response = await axios.get('https://api.ipify.org?format=json');
@@ -14,7 +13,6 @@ async function fetchClientIP() {
     }
 }
 
-// The code fetches the geolocation data based on IP
 async function fetchGeolocation(ip) {
     try {
         const response = await axios.get(`http://ip-api.com/json/${ip}?fields=lat,lon,city`);
@@ -24,7 +22,6 @@ async function fetchGeolocation(ip) {
     }
 }
 
-// Fetch weather data based on latitude and longitude
 async function fetchWeather(lat, lon, apiKey) {
     const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
     try {
@@ -68,13 +65,11 @@ app.get('/api/hello', async (req, res) => {
         }
 
         const { temperature, location } = weatherData;
-        const greetingMessage = `Hello, ${visitorName}! The temperature is ${temperature} degrees Celsius in ${location}.`;
+        const greetingMessage = `Hello, ${visitorName}! The temperature is ${temperature.toFixed(2)} degrees Celsius in ${location}.`;
 
         res.json({
             client_ip: ip,
             city,
-            temperature,
-            location,
             greeting: greetingMessage
         });
     } catch (error) {
