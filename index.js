@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const app = express();
 
-const weatherApiKey = '245b388dae7898e94744c82efd06507d'; // Replace with your OpenWeatherMap API key
+const weatherApiKey = '245b388dae7898e94744c82efd06507d'; 
 
 
 async function fetchClientIP() {
@@ -42,7 +42,6 @@ async function fetchWeather(lat, lon, apiKey) {
     }
 }
 
-// Root route to handle the root URL
 app.get('/', (req, res) => {
     res.send('Welcome to the Weather API! Use /api/hello?visitor_name=YourName to get a greeting.');
 });
