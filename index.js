@@ -2,13 +2,14 @@ const express = require('express');
 const axios = require('axios');
 const app = express();
 
-const weatherApiKey = '245b388dae7898e94744c82efd06507d'; 
+const weatherApiKey = '1397a3d30af52d27312a3363ef5e9599'; 
 
 async function fetchClientIP() {
     try {
         const response = await axios.get('https://api.ipify.org?format=json');
         return response.data.ip;
     } catch (error) {
+        console.error('Error fetching client IP:', error.message);
         return 'Failed to fetch IP';
     }
 }
@@ -18,6 +19,7 @@ async function fetchGeolocation(ip) {
         const response = await axios.get(`http://ip-api.com/json/${ip}?fields=lat,lon,city`);
         return response.data;
     } catch (error) {
+        console.error('Error fetching geolocation:', error.message);
         return { error: 'Failed to fetch geolocation' };
     }
 }
@@ -35,6 +37,7 @@ async function fetchWeather(lat, lon, apiKey) {
             return { error: 'Temperature data not found in the response.' };
         }
     } catch (error) {
+        console.error('Error fetching weather data:', error.message);
         return { error: `Error fetching data from the API: ${error.message}` };
     }
 }
@@ -45,7 +48,6 @@ app.get('/', (req, res) => {
 
 app.get('/api/hello', async (req, res) => {
     const visitorName = req.query.visitor_name || 'Guest';
-    const clientIp = req.ip === '::1' || req.ip === '::ffff:127.0.0.1' ? '127.0.0.1' : req.ip;
 
     try {
         const ip = await fetchClientIP();
@@ -69,10 +71,11 @@ app.get('/api/hello', async (req, res) => {
 
         res.json({
             client_ip: ip,
-            city,
+            location: city, 
             greeting: greetingMessage
         });
     } catch (error) {
+        console.error('Error retrieving data:', error.message);
         res.status(500).json({ error: 'Error retrieving data' });
     }
 });
