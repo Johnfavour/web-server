@@ -1,86 +1,96 @@
 const express = require('express');
 const axios = require('axios');
+
 const app = express();
+const port = process.env.PORT || 3000;
+const openWeatherMapApiKey = '1397a3d30af52d27312a3363ef5e9599'; 
+const abstractApiKey = 'bf4d1414df8d4e3d8ee7969b95ab5e1f'; 
 
-const weatherApiKey = '1397a3d30af52d27312a3363ef5e9599'; 
-
-async function fetchClientIP() {
-    try {
-        const response = await axios.get('https://api.ipify.org?format=json');
-        return response.data.ip;
-    } catch (error) {
-        console.error('Error fetching client IP:', error.message);
-        return 'Failed to fetch IP';
-    }
+async function getWeather(city) {
+  const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${openWeatherMapApiKey}`;
+  try {
+    const response = await axios.get(url);
+    return response.data.main.temp;
+  } catch (error) {
+    console.error('Error fetching weather data:', error.message);
+    throw error;
+  }
 }
 
-async function fetchGeolocation(ip) {
-    try {
-        const response = await axios.get(`http://ip-api.com/json/${ip}?fields=lat,lon,city`);
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching geolocation:', error.message);
-        return { error: 'Failed to fetch geolocation' };
-    }
+async function getGeolocation(ip) {
+  const url = `https://ipgeolocation.abstractapi.com/v1/?api_key=${abstractApiKey}&ip_address=${ip}`;
+  try {
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching geolocation data:', error.message);
+    throw error;
+  }
 }
 
-async function fetchWeather(lat, lon, apiKey) {
-    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
-    try {
-        const response = await axios.get(url);
-        const data = response.data;
-        if ('main' in data && 'temp' in data.main) {
-            const temperature = data.main.temp;
-            const location = data.name || 'Unknown location';
-            return { temperature, location };
-        } else {
-            return { error: 'Temperature data not found in the response.' };
-        }
-    } catch (error) {
-        console.error('Error fetching weather data:', error.message);
-        return { error: `Error fetching data from the API: ${error.message}` };
-    }
-}
-
+// the root route
 app.get('/', (req, res) => {
-    res.send('Welcome to the Weather API! Use /api/hello?visitor_name=YourName to get a greeting.');
+  res.send('Welcome to the Weather API! Use /api/hello?visitor_name=YourName to get a greeting.');
 });
 
+// API endpoint to get user's location and greeting
 app.get('/api/hello', async (req, res) => {
-    const visitorName = req.query.visitor_name || 'Guest';
+  const visitorName = req.query.visitor_name || 'Guest';
 
-    try {
-        const ip = await fetchClientIP();
-        if (ip === 'Failed to fetch IP') {
-            return res.status(500).json({ error: 'Failed to fetch client IP' });
-        }
+  // Getting the client's IP address
+  let clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
-        const geolocation = await fetchGeolocation(ip);
-        if (geolocation.error) {
-            return res.status(500).json(geolocation);
-        }
+  if (Array.isArray(clientIp)) {
+    clientIp = clientIp[0];
+  } else if (clientIp.includes(',')) {
+    clientIp = clientIp.split(',')[0];
+  }
 
-        const { lat, lon, city } = geolocation;
-        const weatherData = await fetchWeather(lat, lon, weatherApiKey);
-        if (weatherData.error) {
-            return res.status(500).json(weatherData);
-        }
+ 
+  clientIp = clientIp.trim();
 
-        const { temperature, location } = weatherData;
-        const greetingMessage = `Hello, ${visitorName}! The temperature is ${temperature.toFixed(2)} degrees Celsius in ${location}.`;
+  
+  if (clientIp === '::1' || clientIp === '127.0.0.1') {
+    clientIp = '105.112.106.226'; // where the ip address was added manually
+  }
 
-        res.json({
-            client_ip: ip,
-            location: city, 
-            greeting: greetingMessage
-        });
-    } catch (error) {
-        console.error('Error retrieving data:', error.message);
-        res.status(500).json({ error: 'Error retrieving data' });
+  console.log(`Client IP: ${clientIp}`);
+
+  try {
+    // Using AbstractAPI to get the ip address
+    const geo = await getGeolocation(clientIp);
+    console.log(`Geo data: ${JSON.stringify(geo)}`);
+
+    if (!geo || !geo.city) {
+      return res.status(500).json({ error: 'Failed to fetch geolocation data' });
     }
+
+    const city = geo.city;
+
+    let temperature = null;
+    try {
+      temperature = await getWeather(city);
+    } catch (error) {
+      return res.status(500).json({ error: `Failed to fetch weather data: ${error.message}` });
+    }
+
+    const greeting = temperature !== null
+      ? `Hello, ${visitorName}! The temperature is ${temperature} degrees Celsius in ${city}.`
+      : `Hello, ${visitorName}! Unable to retrieve the temperature for ${city}.`;
+
+    res.json({
+      client_ip: clientIp,
+      location: city,
+      greeting: greeting
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error retrieving data' });
+  }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
+
+
+
